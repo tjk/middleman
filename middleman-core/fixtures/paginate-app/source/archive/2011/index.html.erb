@@ -1,0 +1,20 @@
+Year: '<%#= year %>'
+
+Paginate: <%= !!current_resource.data.pagination %>
+Article Count: <%= current_resource.data.pagination.items.length %>
+<% if current_resource.data.pagination %>
+Page Num: <%= current_resource.data.pagination.page_number %>
+Num Pages: <%= current_resource.data.pagination.num_pages %>
+Per Page: <%= current_resource.data.pagination.per_page %>
+Page Start: <%= current_resource.data.pagination.page_start %>
+Page End: <%= current_resource.data.pagination.page_end %>
+Next Page: '<%= current_resource.data.pagination.next_page.url if current_resource.data.pagination.next_page %>'
+Prev Page: '<%= current_resource.data.pagination.prev_page.url if current_resource.data.pagination.prev_page %>'
+<% end %>
+
+<% current_resource.data.pagination.items.each do |article| %>
+  <article>
+    <%= article.data.title %>
+    <%= article.url %>
+  </article>
+<% end %>

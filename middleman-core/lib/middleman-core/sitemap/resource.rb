@@ -174,6 +174,11 @@ module Middleman
       def content_type
         options[:content_type] || ::Rack::Mime.mime_type(ext, nil)
       end
+
+      def to_s
+        "#<Middleman::Sitemap::Resource path=#{@path}>"
+      end
+      alias_method :inspect, :to_s # Ruby 2.0 calls inspect for NoMethodError instead of to_s
     end
   end
 end
