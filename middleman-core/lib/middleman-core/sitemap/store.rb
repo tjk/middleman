@@ -142,11 +142,12 @@ module Middleman
       # Get the URL path for an on-disk file
       # @param [String] file
       # @return [String]
-      Contract String => String
-      def file_to_path(file)
+      Contract String, Maybe[String] => String
+      def file_to_path(file, prefix=nil)
         file = File.join(@app.root, file)
 
-        prefix = @app.source_dir.sub(/\/$/, '') + '/'
+        prefix ||= @app.source_dir.sub(/\/$/, '')
+        prefix << '/' unless prefix.end_with?('/')
         raise "'#{file}' not inside project folder '#{prefix}" unless file.start_with?(prefix)
 
         path = file.sub(prefix, '')

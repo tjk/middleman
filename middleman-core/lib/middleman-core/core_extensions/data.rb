@@ -16,7 +16,7 @@ module Middleman
         app.add_to_config_context :data, &method(:data_store)
 
         # The regex which tells Middleman which files are for data
-        data_file_matcher = /#{app.config[:data_dir]}\/(.*?)[\w-]+\.(yml|yaml|json)$/
+        data_file_matcher = /^#{app.config[:data_dir]}\/(.*?)[\w-]+\.(yml|yaml|json)$/
 
         # Setup data files before anything else so they are available when
         # parsing config.rb
