@@ -83,7 +83,7 @@ module Middleman
       logger.debug '== Checking for Compass sprites'
 
       # Double-check for compass sprites
-      @app.files.find_new_files((@source_dir + @app.config[:images_dir]).relative_path_from(@app.root_path))
+      @app.files.find_new_files!
       @app.sitemap.ensure_resource_list_updated!
 
       css_files

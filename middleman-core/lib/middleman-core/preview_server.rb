@@ -103,6 +103,9 @@ module Middleman
 
         app = ::Middleman::Application.new do
           config[:environment] = opts[:environment].to_sym if opts[:environment]
+          config[:watcher_disable] = opts[:disable_watcher]
+          config[:watcher_force_polling] = opts[:force_polling]
+          config[:watcher_latency] = opts[:latency]
         end
 
         # Add in the meta pages application
@@ -112,41 +115,6 @@ module Middleman
         end
 
         app
-      end
-
-      def start_file_watcher
-        return if @listener || @options[:disable_watcher]
-
-        # Watcher Library
-        require 'listen'
-
-        options = { force_polling: @options[:force_polling] }
-        options[:latency] = @options[:latency] if @options[:latency]
-
-        @listener = Listen.to(Dir.pwd, options) do |modified, added, removed|
-          added_and_modified = (modified + added)
-
-          # See if the changed file is config.rb or lib/*.rb
-          if needs_to_reload?(added_and_modified + removed)
-            $mm_reload = true
-            @webrick.stop
-          else
-            added_and_modified.each do |path|
-              relative_path = Pathname(path).relative_path_from(Pathname(Dir.pwd)).to_s
-              next if app.files.ignored?(relative_path)
-              app.files.did_change(relative_path)
-            end
-
-            removed.each do |path|
-              relative_path = Pathname(path).relative_path_from(Pathname(Dir.pwd)).to_s
-              next if app.files.ignored?(relative_path)
-              app.files.did_delete(relative_path)
-            end
-          end
-        end
-
-        # Don't block this thread
-        @listener.start
       end
 
       # Trap some interupt signals and shut down smoothly
@@ -195,8 +163,6 @@ module Middleman
         @app = app
 
         @webrick ||= setup_webrick(@options[:debug] || false)
-
-        start_file_watcher
 
         rack_app = ::Middleman::Rack.new(@app).to_app
         @webrick.mount '/', ::Rack::Handler::WEBrick, rack_app

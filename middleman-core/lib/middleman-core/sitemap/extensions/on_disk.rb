@@ -28,28 +28,18 @@ module Middleman
           app.files.deleted(&method(:remove_file))
         end
 
+        def ignored?(file)
+          @app.config[:ignored_sitemap_matchers].any? do |_, callback|
+            callback.call(file, @app)
+          end
+        end
+
         # Update or add an on-disk file path
         # @param [String] file
         # @return [void]
-        Contract String => Any
+        Contract IsA['Middleman::SourceFile'] => Any
         def touch_file(file)
-          return false if File.directory?(file)
-
-          begin
-            @app.sitemap.file_to_path(file)
-          rescue
-            return
-          end
-
-          ignored = @app.config[:ignored_sitemap_matchers].any? do |_, callback|
-            if callback.arity == 1
-              callback.call(file)
-            else
-              callback.call(file, @app)
-            end
-          end
-
-          @file_paths_on_disk << file unless ignored
+          return if ignored?(file)
 
           # Rebuild the sitemap any time a file is touched
           # in case one of the other manipulators
@@ -65,9 +55,9 @@ module Middleman
         # Remove a file from the store
         # @param [String] file
         # @return [void]
-        Contract String => Any
+        Contract IsA['Middleman::SourceFile'] => Any
         def remove_file(file)
-          return unless @file_paths_on_disk.delete?(file)
+          return if ignored?(file)
 
           @app.sitemap.rebuild_resource_list!(:removed_file)
 
@@ -76,15 +66,26 @@ module Middleman
           @app.sitemap.ensure_resource_list_updated! unless waiting_for_ready || @app.build?
         end
 
+        def files_for_sitemap
+          @app.files.by_type(:source).files.reject(&method(:ignored?))
+        end
+
         # Update the main sitemap resource list
         # @return Array<Middleman::Sitemap::Resource>
         Contract ResourceList => ResourceList
         def manipulate_resource_list(resources)
-          resources + @file_paths_on_disk.map do |file|
+          resources + files_for_sitemap.map do |file|
+            relative_path = file[:relative_path].to_s
+
+            # Replace a file name containing automatic_directory_matcher with a folder
+            unless @app.config[:automatic_directory_matcher].nil?
+              relative_path = relative_path.gsub(@app.config[:automatic_directory_matcher], '/')
+            end
+
             ::Middleman::Sitemap::Resource.new(
               @app.sitemap,
-              @app.sitemap.file_to_path(file),
-              File.join(@app.root, file)
+              @app.sitemap.extensionless_path(relative_path),
+              file[:full_path].to_s
             )
           end
         end

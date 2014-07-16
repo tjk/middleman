@@ -145,21 +145,18 @@ module Middleman
 
     # Setup callbacks which can exclude paths from the sitemap
     config.define_setting :ignored_sitemap_matchers, {
-      # dotfiles and folders in the root
-      root_dotfiles: proc { |file| file.start_with?('.') },
-
-      # Files starting with an dot, but not .htaccess
-      source_dotfiles: proc { |file|
-        file =~ %r{/\.} && file !~ %r{/\.(htaccess|htpasswd|nojekyll)}
-      },
-
       # Files starting with an underscore, but not a double-underscore
-      partials: proc { |file| file =~ %r{/_[^_]} },
+      partials: proc { |file| File.basename(file[:relative_path]).match %r{^_[^_]} },
 
-      layout: proc { |file, sitemap_app|
-        file.start_with?(File.join(sitemap_app.config[:source], 'layout.')) || file.start_with?(File.join(sitemap_app.config[:source], 'layouts/'))
+      layout: proc { |file, _sitemap_app|
+        file[:relative_path].to_s.start_with?('layout.') ||
+        file[:relative_path].to_s.start_with?('layouts/')
       }
     }, 'Callbacks that can exclude paths from the sitemap'
+
+    config.define_setting :watcher_disable, false, 'If the Listen watcher should not run'
+    config.define_setting :watcher_force_polling, false, 'If the Listen watcher should run in polling mode'
+    config.define_setting :watcher_latency, nil, 'The Listen watcher latency'
 
     attr_reader :config_context
     attr_reader :sitemap
@@ -168,6 +165,7 @@ module Middleman
     attr_reader :config
     attr_reader :generic_template_context
     attr_reader :extensions
+    attr_reader :sources
 
     Contract None => SetOf['Middleman::Application::MiddlewareDescriptor']
     attr_reader :middleware
@@ -200,7 +198,13 @@ module Middleman
       @config = ::Middleman::Configuration::ConfigurationManager.new
       @config.load_settings(self.class.config.all_settings)
 
+      config[:source] = ENV['MM_SOURCE'] if ENV['MM_SOURCE']
+
       @extensions = ::Middleman::ExtensionManager.new(self)
+
+      # Evaluate a passed block if given
+      config_context.instance_exec(&block) if block_given?
+
       @extensions.auto_activate(:before_sitemap)
 
       # Initialize the Sitemap
@@ -211,8 +215,6 @@ module Middleman
         Encoding.default_external = config[:encoding]
       end
 
-      config[:source] = ENV['MM_SOURCE'] if ENV['MM_SOURCE']
-
       ::Middleman::Extension.clear_after_extension_callbacks
 
       @extensions.auto_activate(:before_configuration)
@@ -221,7 +223,7 @@ module Middleman
 
       run_hook :before_configuration
 
-      evaluate_configuration(&block)
+      evaluate_configuration
 
       # This is for making the tests work - since the tests
       # don't completely reload middleman, I18n.load_path can get
@@ -250,10 +252,7 @@ module Middleman
       @config_context.execute_ready_callbacks
     end
 
-    def evaluate_configuration(&block)
-      # Evaluate a passed block if given
-      config_context.instance_exec(&block) if block_given?
-
+    def evaluate_configuration
       # Check for and evaluate local configuration in `config.rb`
       local_config = File.join(root, 'config.rb')
       if File.exist? local_config

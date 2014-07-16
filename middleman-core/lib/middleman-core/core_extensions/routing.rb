@@ -13,7 +13,7 @@ module Middleman
       end
 
       def before_configuration
-        app.add_to_config_context :page, &method(:page)
+        app.add_to_config_context(:page, &method(:page))
       end
 
       # @return Array<Middleman::Sitemap::Resource>
